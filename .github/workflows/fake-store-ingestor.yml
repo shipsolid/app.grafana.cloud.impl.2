@@ -90,7 +90,7 @@ jobs:
         env:
           ASPNETCORE_URLS: http://localhost:5171
         run: |
-          dotnet run --project FakeStoreIngestor --configuration Release &
+          dotnet run --configuration Release &
           echo $! > api.pid
           # Wait for API to be healthy
           for i in {1..30}; do
