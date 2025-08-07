@@ -27,20 +27,38 @@ jobs:
           --health-timeout=5s
           --health-retries=5
 
-      # Mock "FakeStore" upstream to avoid Cloudflare blocks in CI
-      fakestore-mock:
-        image: clue/json-server:latest
-        ports: [ "3000:80" ]
-        # Mount our db.json into the container and tell json-server to use it
-        options: >-
-          --mount type=bind,source=${{ github.workspace }}/.github/mock/db.json,target=/data/db.json,readonly
-          --health-cmd="wget -qO- http://localhost:80/products > /dev/null"
-          --health-interval=5s --health-timeout=3s --health-retries=10
+      # # Mock "FakeStore" upstream to avoid Cloudflare blocks in CI
+      # fakestore-mock:
+      #   image: clue/json-server:latest
+      #   ports: [ "3000:80" ]
+      #   # Mount our db.json into the container and tell json-server to use it
+      #   options: >-
+      #     --mount type=bind,source=${{ github.workspace }}/.github/mock/db.json,target=/data/db.json,readonly
+      #     --health-cmd="wget -qO- http://localhost:80/products > /dev/null"
+      #     --health-interval=5s --health-timeout=3s --health-retries=10
 
     steps:
       # Checkout code
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # Start mock json-server from db.json in your repo
+      - name: Start mock upstream (json-server)
+        run: |
+          docker run -d --name fakestore-mock \
+            -p 3000:80 \
+            -v "$GITHUB_WORKSPACE/.github/mock/db.json:/data/db.json:ro" \
+            clue/json-server:latest \
+            -H 0.0.0.0 -p 80 /data/db.json
+          # wait for it
+          for i in {1..30}; do
+            if curl -sf http://localhost:3000/products > /dev/null; then
+              echo "Mock is up!"
+              break
+            fi
+            echo "Waiting for mock..."
+            sleep 2
+          done
 
       # Setup .NET SDK (match your project’s version)
       - name: Setup .NET
@@ -168,3 +186,6 @@ jobs:
         if: always()
         run: kill $(cat api.pid)
 
+      - name: Stop mock
+        if: always()
+        run: docker rm -f fakestore-mock || true
