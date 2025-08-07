@@ -102,10 +102,24 @@ jobs:
             sleep 2
           done
 
+      - name: Check upstream fakestore reachability
+        run: |
+          set -e
+          curl -I https://fakestoreapi.com/products || true
+
       # Import first 5 products
       - name: Import first 5
         run: |
           curl -v -X POST 'http://localhost:5171/import/5' -H 'accept: */*'
+
+      - name: Read one
+        run: |
+          curl -v -X GET 'http://localhost:5171/products/1' -H 'accept: */*'
+
+
+      - name: List all
+        run: |
+          curl -v -X GET 'http://localhost:5171/products' -H 'accept: */*'
 
       # Kill API after seeding
       - name: Stop API
