@@ -1,0 +1,113 @@
+name: Build and Test with MySQL
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: FakeStoreIngestor
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpass
+          MYSQL_DATABASE: fakestore
+          MYSQL_USER: appuser
+          MYSQL_PASSWORD: apppass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      # Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Setup .NET SDK (match your project’s version)
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # Restore dependencies
+      - name: Restore dependencies
+        run: dotnet restore
+
+      # Build
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      # Wait for MySQL to be ready
+      - name: Wait for MySQL
+        run: |
+          for i in {1..30}; do
+            if mysqladmin ping -h127.0.0.1 -P3306 -uappuser -papppass --silent; then
+              echo "MySQL is up!"
+              break
+            fi
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+
+      # Run EF Core migrations (if you use them)
+      - name: Apply database migrations
+        env:
+          ConnectionStrings__Default: Server=127.0.0.1;Port=3306;Database=fakestore;User=appuser;Password=apppass;TreatTinyAsBoolean=false
+        run: dotnet ef database update --project FakeStoreIngestor
+
+      # Run tests
+      - name: Test
+        env:
+          ConnectionStrings__Default: Server=127.0.0.1;Port=3306;Database=fakestore;User=appuser;Password=apppass;TreatTinyAsBoolean=false
+        run: dotnet test --no-build --verbosity normal
+
+      # # Start the API in background
+      # - name: Run API in background
+      #   run: |
+      #     dotnet run --project FakeStoreIngestor --urls "http://localhost:5171" &
+      #     echo $! > api.pid
+      #     # wait for it to start
+      #     for i in {1..20}; do
+      #       if curl -s http://localhost:5171/health > /dev/null; then
+      #         echo "API is up!"
+      #         break
+      #       fi
+      #       echo "Waiting for API..."
+      #       sleep 2
+      #     done
+
+      # Start the API in background on a fixed port
+      - name: Run API in background
+        env:
+          ASPNETCORE_URLS: http://localhost:5171
+        run: |
+          dotnet run --project FakeStoreIngestor --configuration Release &
+          echo $! > api.pid
+          # Wait for API to be healthy
+          for i in {1..30}; do
+            if curl -s http://localhost:5171/health > /dev/null; then
+              echo "API is up!"
+              break
+            fi
+            echo "Waiting for API..."
+            sleep 2
+          done
+
+      # Import first 5 products
+      - name: Import first 5
+        run: |
+          curl -v -X POST 'http://localhost:5171/import/5' -H 'accept: */*'
+
+      # Kill API after seeding
+      - name: Stop API
+        run: kill $(cat api.pid)
+
