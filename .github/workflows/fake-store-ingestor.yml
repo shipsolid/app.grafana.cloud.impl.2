@@ -105,7 +105,7 @@ jobs:
       - name: Check upstream fakestore reachability
         run: |
           set -e
-          curl -I https://fakestoreapi.com/products || true
+          curl -v -I https://fakestoreapi.com/products || true
 
       # Import first 5 products
       - name: Import first 5
