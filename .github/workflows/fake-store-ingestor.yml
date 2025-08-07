@@ -29,7 +29,7 @@ jobs:
 
       # Mock "FakeStore" upstream to avoid Cloudflare blocks in CI
       fakestore-mock:
-        image: typicode/json-server:latest
+        image: clue/json-server:latest
         ports: [ "3000:80" ]
         # Mount our db.json into the container and tell json-server to use it
         options: >-
