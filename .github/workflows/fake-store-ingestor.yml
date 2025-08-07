@@ -58,11 +58,11 @@ jobs:
             sleep 2
           done
 
-      # Run EF Core migrations (if you use them)
-      - name: Apply database migrations
-        env:
-          ConnectionStrings__Default: Server=127.0.0.1;Port=3306;Database=fakestore;User=appuser;Password=apppass;TreatTinyAsBoolean=false
-        run: dotnet ef database update --project FakeStoreIngestor
+      # # Run EF Core migrations (if you use them)
+      # - name: Apply database migrations
+      #   env:
+      #     ConnectionStrings__Default: Server=127.0.0.1;Port=3306;Database=fakestore;User=appuser;Password=apppass;TreatTinyAsBoolean=false
+      #   run: dotnet ef database update --project FakeStoreIngestor
 
       # Run tests
       - name: Test
