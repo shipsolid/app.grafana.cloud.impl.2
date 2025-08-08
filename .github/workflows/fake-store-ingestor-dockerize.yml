@@ -41,7 +41,7 @@ jobs:
       - name: Wait for MySQL
         run: |
           for i in {1..40}; do
-            if mysqladmin ping -h 127.0.0.1 -P 3306 -u appuser -p apppass --silent; then
+            if mysqladmin ping -h127.0.0.1 -P3306 -uappuser -papppass --silent; then
               echo "MySQL is up!"
               break
             fi

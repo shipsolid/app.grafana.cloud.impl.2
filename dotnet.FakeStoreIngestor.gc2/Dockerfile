@@ -4,19 +4,50 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
+# Refresh CA certs (Debian/Ubuntu base)
+USER root
+# RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+#   && update-ca-certificates \
+#   && rm -rf /var/lib/apt/lists/*
+
+# ## Updates package lists and installs curl and CA certificates.
+# RUN apt update && apt install -y curl ca-certificates
+
+# ## Copy certificates from the build context
+# COPY zcert.crt /usr/local/share/ca-certificates/
+
+# ## Update certificates to ensure they are recognized
+# RUN update-ca-certificates --fresh
+
 # Copy csproj first for better layer caching
-COPY FakeStoreIngestor/*.csproj ./FakeStoreIngestor/
-RUN dotnet restore ./FakeStoreIngestor/FakeStoreIngestor.csproj
+COPY FakeStoreIngestor.csproj ./
+
+# RUN dotnet --info && dotnet nuget list source
+# RUN curl -I https://api.nuget.org/v3/index.json || true
+# RUN ls -la && echo "----" && cat FakeStoreIngestor.csproj || true
+
+RUN dotnet restore FakeStoreIngestor.csproj
 
 # Copy the rest and publish
 COPY . .
-RUN dotnet publish ./FakeStoreIngestor/FakeStoreIngestor.csproj -c Release -o /app/publish /p:UseAppHost=false
+RUN dotnet publish FakeStoreIngestor.csproj -c Release -o /app/publish /p:UseAppHost=false
 
 # =========================
 #  Runtime stage
 # =========================
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
+
+USER root
+ARG OTEL_VERSION=1.4.0
+ADD <https://github.com/open-telemetry/opentelemetry-dotnet-instrumentation/releases/download/v${OTEL_VERSION}/otel-dotnet-auto-install.sh> otel-dotnet-auto-install.sh
+RUN apt-get update && apt-get install -y curl unzip && \
+    OTEL_DOTNET_AUTO_HOME="/otel-dotnet-auto" sh otel-dotnet-auto-install.sh && \
+    chmod +x /otel-dotnet-auto/instrument.sh
+ENV OTEL_DOTNET_AUTO_HOME="/otel-dotnet-auto"
+ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317
+ENV OTEL_SERVICE_NAME=FakeStoreIngestor
+ENV OTEL_RESOURCE_ATTRIBUTES=sandbox
 
 # Create non-root user
 RUN adduser --disabled-password --gecos "" appuser && chown -R appuser /app
@@ -30,7 +61,8 @@ EXPOSE 8080
 # MySQL connection (override in prod via -e or compose)
 ENV ConnectionStrings__Default="Server=localhost;Port=3306;Database=fakestore;User=appuser;Password=apppass;TreatTinyAsBoolean=false;DefaultCommandTimeout=30"
 # Upstream API (override in CI to point at mock)
-ENV Ingest__BaseUrl="https://fakestoreapi.com/"
+# ENV Ingest__BaseUrl="https://fakestoreapi.com/"
+ENV Ingest__BaseUrl="http://localhost:3000/"
 ENV Ingest__ProductsEndpoint="products"
 
 # Copy published output
@@ -41,4 +73,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
   CMD wget -qO- http://localhost:8080/health || exit 1
 
 # Run
-ENTRYPOINT ["dotnet", "FakeStoreIngestor.dll"]
+# ENTRYPOINT ["dotnet", "FakeStoreIngestor.dll"]
+ENTRYPOINT ["/otel-dotnet-auto/instrument.sh", "dotnet", "FakeStoreIngestor.dll"]
