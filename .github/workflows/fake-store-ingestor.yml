@@ -182,7 +182,7 @@ jobs:
           Ingest__BaseUrl: http://localhost:3000/
           Ingest__ProductsEndpoint: products
         run: |
-          dotnet run --project FakeStoreIngestor --configuration Release &
+          dotnet run --configuration Release &
           echo $! > api.pid
           # Wait for API health
           for i in {1..30}; do
