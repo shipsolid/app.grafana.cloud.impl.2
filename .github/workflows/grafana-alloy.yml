@@ -1,0 +1,55 @@
+name: Grafana-Alloy-Image-Push
+
+on:
+  # push:
+  #   branches:
+  #     - main  # Runs only when pushing to main branch
+  #     - '**'  # Runs on push to any branch
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build:
+    name: Dockerize and Push
+    runs-on: ubuntu-latest
+    defaults:
+      working-directory: grafanaCloud
+    # strategy:
+    #   matrix:
+    #     config:
+    #       - cfg
+    #       - abc
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4 # Use latest version
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0  # needed for versioning/tag lookup
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # cp ${{ matrix.config }} config.alloy
+      - name: Dockerize
+        run: |
+          docker buildx build --push -t ghcr.io/${{ github.repository_owner }}/myAlloy:latest .
+
+      - name: Push Image
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/myAlloy:latest
+
+      - name: Run Container for Verification
+        run: |
+          docker run -d --rm --name test -p 12345:12345 ghcr.io/${{ github.repository_owner }}/myAlloy:latest
+          sleep 10  # Give it time to start
+          docker logs test

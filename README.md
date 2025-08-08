@@ -122,3 +122,69 @@ services:
       - mock
 
 ```
+
+# Grafana Cloud
+
+Put secrets in GitHub → Settings → Secrets and variables → Actions
+Create:
+
+GRAFANA_OTLP_USERNAME
+
+GRAFANA_OTLP_PASSWORD
+
+GRAFANA_RW_USERNAME
+
+GRAFANA_RW_PASSWORD
+
+(optional) GRAFANA_OTLP_ENDPOINT, GRAFANA_RW_URL
+
+If you run Alloy/your collector directly in a step:
+
+```yml
+- name: Run Alloy with secrets
+  env:
+    GRAFANA_OTLP_USERNAME: ${{ secrets.GRAFANA_OTLP_USERNAME }}
+    GRAFANA_OTLP_PASSWORD: ${{ secrets.GRAFANA_OTLP_PASSWORD }}
+    GRAFANA_RW_USERNAME:   ${{ secrets.GRAFANA_RW_USERNAME }}
+    GRAFANA_RW_PASSWORD:   ${{ secrets.GRAFANA_RW_PASSWORD }}
+    # optional if you env-ified URLs
+    GRAFANA_OTLP_ENDPOINT: https://otlp-gateway-prod-ca-east-0.grafana.net/otlp
+    GRAFANA_RW_URL:        https://prometheus-prod-32-prod-ca-east-0.grafana.net/api/prom/push
+  run: |
+    ./alloy --server.http.listen-addr=0.0.0.0:12345 \
+            --config.file=./path/to/your.river
+
+```
+
+If you run it in Docker:
+
+```yml
+- name: Run Alloy container
+  run: |
+    docker run -d --name alloy --network host \
+      -e GRAFANA_OTLP_USERNAME='${{ secrets.GRAFANA_OTLP_USERNAME }}' \
+      -e GRAFANA_OTLP_PASSWORD='${{ secrets.GRAFANA_OTLP_PASSWORD }}' \
+      -e GRAFANA_RW_USERNAME='${{ secrets.GRAFANA_RW_USERNAME }}' \
+      -e GRAFANA_RW_PASSWORD='${{ secrets.GRAFANA_RW_PASSWORD }}' \
+      -e GRAFANA_OTLP_ENDPOINT='https://otlp-gateway-prod-ca-east-0.grafana.net/otlp' \
+      -e GRAFANA_RW_URL='https://prometheus-prod-32-prod-ca-east-0.grafana.net/api/prom/push' \
+      -v "$GITHUB_WORKSPACE/path/to/your.river:/etc/alloy/config.river:ro" \
+      grafana/alloy:latest \
+      --config.file=/etc/alloy/config.river
+
+```
+
+Local Export envs before running:
+
+```sh
+export GRAFANA_OTLP_USERNAME=116
+export GRAFANA_OTLP_PASSWORD=glc_...
+export GRAFANA_RW_USERNAME=224
+export GRAFANA_RW_PASSWORD=glc_...
+# optional:
+export GRAFANA_OTLP_ENDPOINT=https://otlp-gateway-prod-ca-east-0.grafana.net/otlp
+export GRAFANA_RW_URL=https://prometheus-prod-32-prod-ca-east-0.grafana.net/api/prom/push
+
+./alloy --config.file=./config.river
+
+```
