@@ -4,6 +4,15 @@ using FakeStoreIngestor.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using Pomelo.EntityFrameworkCore.MySql.Infrastructure;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Instrumentation.AspNetCore;
+using OpenTelemetry.Instrumentation.Http;
+using Prometheus;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,9 +20,118 @@ var builder = WebApplication.CreateBuilder(args);
 // Configuration
 // ------------------------
 var cs = builder.Configuration.GetConnectionString("Default")
-         ?? throw new InvalidOperationException("ConnectionStrings:Default is missing.");
+            ?? throw new InvalidOperationException("ConnectionStrings:Default is missing.");
 var baseUrl = builder.Configuration["Ingest:BaseUrl"] ?? "https://fakestoreapi.com/";
 var productsEndpoint = builder.Configuration["Ingest:ProductsEndpoint"] ?? "products";
+
+// ------------------------
+// Instrumentation Changes Start
+// ------------------------
+string serviceName = Environment.GetEnvironmentVariable("OTEL_SERVICE_NAME")
+    ?? throw new InvalidOperationException("OTEL_SERVICE_NAME is not set");
+string OTEL_EXPORTER_OTLP_ENDPOINT = Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")
+    ?? throw new InvalidOperationException("OTEL_EXPORTER_OTLP_ENDPOINT is not set");
+string OTEL_RESOURCE_ATTRIBUTES = Environment.GetEnvironmentVariable("OTEL_RESOURCE_ATTRIBUTES")
+    ?? throw new InvalidOperationException("OTEL_RESOURCE_ATTRIBUTES is not set");
+string apps = serviceName;
+builder.Services.Configure<OtlpExporterOptions>("tracing", builder.Configuration.GetSection("OpenTelemetry:tracing:otlp"));
+builder.Services.Configure<OtlpExporterOptions>("metrics", builder.Configuration.GetSection("OpenTelemetry:metrics:otlp"));
+builder.Services.Configure<OtlpExporterOptions>("logging", builder.Configuration.GetSection("OpenTelemetry:logging:otlp"));
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+builder.Logging.AddOpenTelemetry(options =>
+{
+    options.IncludeScopes = true;
+    options.SetResourceBuilder(
+        ResourceBuilder.CreateDefault()
+            .AddService(serviceName: serviceName)
+            .AddAttributes(new []
+                {
+                    new KeyValuePair<string, object>("loki.resource.labels", "apps"),
+                    new KeyValuePair<string, object>("apps", apps),
+                }
+            )
+    );
+    options.AddConsoleExporter();
+    options.AddOtlpExporter(
+        "logging",
+        options => 
+        {
+            options.Protocol = OtlpExportProtocol.Grpc;
+            options.Endpoint = new Uri(OTEL_EXPORTER_OTLP_ENDPOINT);
+        }
+    );
+});
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(
+        resource => resource
+        .AddService(serviceName: serviceName)
+        .AddAttributes(new Dictionary<string, object>
+            {
+                { "deployment.environment", OTEL_RESOURCE_ATTRIBUTES }
+            }
+        )
+    )
+    .WithTracing(
+        tracing => tracing
+        .AddSource(serviceName)
+        .AddAspNetCoreInstrumentation(
+            options =>
+            {
+                options.EnrichWithHttpRequest = (activity, httpRequest) =>
+                {
+                    activity.SetTag("app.name", apps);
+                    activity.SetTag("deployment.environment", OTEL_RESOURCE_ATTRIBUTES);
+                    activity.SetTag("http.method", httpRequest.Method);
+                    activity.SetTag("http.path", httpRequest.Path);
+                    activity.SetTag("user.agent", httpRequest.Headers["User-Agent"].ToString());
+                    activity.SetTag("client.ip", httpRequest.HttpContext.Connection.RemoteIpAddress?.ToString());
+                };
+                options.EnrichWithHttpResponse = (activity, httpResponse) =>
+                {
+                    activity.SetTag("http.status_code", httpResponse.StatusCode);
+                };
+                options.EnrichWithException = (activity, exception) =>
+                {
+                    activity.SetTag("otel.status_code", "ERROR");
+                    activity.SetTag("otel.status_description", exception.Message);
+                };
+            }
+        )
+        .AddSqlClientInstrumentation(
+            options =>
+            {
+                options.SetDbStatementForText = true; // Adds SQL query as a tag (optional but useful)
+            }
+        )
+        .AddHttpClientInstrumentation()
+        .AddConsoleExporter()
+        .AddOtlpExporter(
+            "tracing",
+            options => {
+                options.Protocol = OtlpExportProtocol.Grpc;
+                options.Endpoint = new Uri(OTEL_EXPORTER_OTLP_ENDPOINT);
+            }
+        )
+    )
+    .WithMetrics(
+        metrics => metrics
+        .AddMeter(serviceName)
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddConsoleExporter()
+        .AddOtlpExporter(
+            "metrics",
+            options => {
+                options.Protocol = OtlpExportProtocol.Grpc;
+                options.Endpoint = new Uri(OTEL_EXPORTER_OTLP_ENDPOINT);
+            }
+        )
+    );
+builder.Services.AddSingleton(new Instrumentation(serviceName));
+// ------------------------
+// Instrumentation Changes End
+// ------------------------
 
 // ------------------------
 // Services
@@ -117,5 +235,18 @@ app.MapGet("/products/{id:int}", async (int id, AppDbContext db) =>
                              .FirstOrDefaultAsync(p => p.Id == id);
     return p is null ? Results.NotFound() : Results.Ok(p);
 });
+
+// ------------------------
+// Instrumentation Changes Start
+// -------------------------
+app.UseRouting();
+// Enable Prometheus metrics collection -- Added
+app.UseHttpMetrics();   // Auto-captures request metrics
+app.UseMetricServer();  // Exposes metrics at /metrics
+// // Auth middleware
+// app.UseAuthorization();
+// ------------------------
+// Instrumentation Changes End
+// ------------------------
 
 app.Run();

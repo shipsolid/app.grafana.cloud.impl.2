@@ -62,4 +62,63 @@ curl -X 'GET' \
   'http://localhost:5171/products' \
   -H 'accept: */*'
 
+
+# Build
+docker build -t fakestore-api .
+docker build --no-cache -t fakestore-api .
+
+DOCKER_BUILDKIT=1 docker build --progress=plain --no-cache -t fakestore-api .
+# or disable BuildKit:
+DOCKER_BUILDKIT=0 docker build -t fakestore-api -f ... .
+
+
+# Run against local MySQL and real FakeStore
+docker run -p 8080:8080 \
+  -e ConnectionStrings__Default="Server=host.docker.internal;Port=3306;Database=fakestore;User=appuser;Password=apppass;TreatTinyAsBoolean=false;DefaultCommandTimeout=30" \
+  -e Ingest__BaseUrl="https://fakestoreapi.com/" \
+  -e Ingest__ProductsEndpoint="products" \
+  fakestore-api
+
+# Test
+curl -s http://localhost:8080/health
+curl -s -X POST http://localhost:8080/import/5
+curl -s http://localhost:8080/products | jq .
+
+```
+
+```yml docker-compose-snippet
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: fakestore
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppass
+    ports: [ "3306:3306" ]
+
+  mock:
+    image: node:20-alpine
+    working_dir: /data
+    command: sh -c "npm i -g json-server@^0 && json-server --host 0.0.0.0 --port 3000 db.json"
+    volumes:
+      - ./.github/mock/db.json:/data/db.json:ro
+    ports: [ "3000:3000" ]
+
+  api:
+    image: fakestore-api
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+      ConnectionStrings__Default: "Server=mysql;Port=3306;Database=fakestore;User=appuser;Password=apppass;TreatTinyAsBoolean=false;DefaultCommandTimeout=30"
+      # switch to mock easily:
+      # Ingest__BaseUrl: "http://mock:3000/"
+      # Ingest__ProductsEndpoint: "products"
+    ports: [ "8080:8080" ]
+    depends_on:
+      - mysql
+      - mock
+
 ```
