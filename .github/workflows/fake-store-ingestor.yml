@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: FakeStoreIngestor
+        working-directory: dotnet.FakeStoreIngestor
 
     services:
       mysql:
