@@ -86,6 +86,7 @@ jobs:
           set -e
           docker rm -f fakestore-mock >/dev/null 2>&1 || true
           docker run -d --name fakestore-mock \
+            --network host \
             -p 3000:3000 \
             ghcr.io/${{ github.repository_owner }}/fakestore-mock:latest
 
@@ -107,15 +108,15 @@ jobs:
       - name: Wait for API
         env:
           ASPNETCORE_URLS: http://0.0.0.0:5171
-          ConnectionStrings__Default: Server=mysql;Port=3306;Database=fakestore;User=appuser;Password=apppass;TreatTinyAsBoolean=false;DefaultCommandTimeout=30
+          ConnectionStrings__Default: Server=127.0.0.1;Port=3306;Database=fakestore;User=appuser;Password=apppass;TreatTinyAsBoolean=false;DefaultCommandTimeout=30
           Ingest__BaseUrl: http://localhost:3000/
           Ingest__ProductsEndpoint: products
         run: |
           set -e
           docker rm -f fakestore-api >/dev/null 2>&1 || true
           docker run -d --name fakestore-api \
-            -p 5171:5171 \
             --network host \
+            -p 5171:5171 \
             -e ASPNETCORE_URLS="$ASPNETCORE_URLS" \
             -e ConnectionStrings__Default="$ConnectionStrings__Default" \
             -e Ingest__BaseUrl="$Ingest__BaseUrl" \
