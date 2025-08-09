@@ -126,17 +126,16 @@ services:
 # Grafana Cloud
 
 Put secrets in GitHub → Settings → Secrets and variables → Actions
+
 Create:
 
-GRAFANA_OTLP_USERNAME
+- GRAFANA_OTLP_ENDPOINT
+- GRAFANA_OTLP_USERNAME
+- GRAFANA_OTLP_PASSWORD
 
-GRAFANA_OTLP_PASSWORD
-
-GRAFANA_RW_USERNAME
-
-GRAFANA_RW_PASSWORD
-
-(optional) GRAFANA_OTLP_ENDPOINT, GRAFANA_RW_URL
+- GRAFANA_RW_URL
+- GRAFANA_RW_USERNAME
+- GRAFANA_RW_PASSWORD
 
 If you run Alloy/your collector directly in a step:
 

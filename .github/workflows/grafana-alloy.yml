@@ -1,9 +1,9 @@
 name: Grafana-Alloy-Image-Push
 
 on:
-  # push:
-  #   branches:
-  #     - main  # Runs only when pushing to main branch
+  push:
+    branches:
+      - main  # Runs only when pushing to main branch
   #     - '**'  # Runs on push to any branch
   workflow_dispatch:
 
@@ -16,7 +16,8 @@ jobs:
     name: Dockerize and Push
     runs-on: ubuntu-latest
     defaults:
-      working-directory: grafanaCloud
+      run:
+        working-directory: grafanaCloud
     # strategy:
     #   matrix:
     #     config:
