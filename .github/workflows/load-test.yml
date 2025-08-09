@@ -198,6 +198,12 @@ jobs:
         run: |
           docker logs alloy-agent || true
 
+      - name: Dump Alloy logs
+        run: |
+          curl -sS 'http://localhost:12345/metrics' || true
+          curl -sS 'http://localhost:12345/health' || true
+          curl -sS 'http://localhost:5171/metrics' || true
+
       # - name: Stop containers & processes
       #   if: always()
       #   run: |
