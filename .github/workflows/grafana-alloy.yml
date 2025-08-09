@@ -50,10 +50,6 @@ jobs:
         run: |
           docker buildx build --push -t ghcr.io/${{ github.repository_owner }}/myalloy:latest .
 
-      - name: Push Image
-        run: |
-          docker push ghcr.io/${{ github.repository_owner }}/myalloy:latest
-
       - name: Run Container for Verification
         run: |
           docker run -d --rm --name test -p 12345:12345 ghcr.io/${{ github.repository_owner }}/myalloy:latest
