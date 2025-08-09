@@ -4,8 +4,11 @@ on:
   workflow_dispatch:  # Allows manual triggering of the workflow
 
   push:
-    branches:
-      - main  # Runs only when pushing to main branch
+    paths:
+    - 'grafanaCloud/**'  # Trigger on changes in the grafanaCloud directory
+    - '.github/workflows/grafana-alloy.yml'  # Trigger on changes to this workflow file
+  #   branches:
+  #     - main  # Runs only when pushing to main branch
   #     - '**'  # Runs on push to any branch
 
 jobs:
