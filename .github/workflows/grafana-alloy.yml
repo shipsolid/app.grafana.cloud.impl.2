@@ -1,28 +1,33 @@
 name: Grafana-Alloy-Image-Push
 
 on:
+  workflow_dispatch:  # Allows manual triggering of the workflow
+
   push:
     branches:
       - main  # Runs only when pushing to main branch
   #     - '**'  # Runs on push to any branch
-  workflow_dispatch:
-
-permissions:
-  id-token: write
-  contents: read
 
 jobs:
   build:
     name: Dockerize and Push
     runs-on: ubuntu-latest
+
+    permissions:
+      # contents: read  # Allow read access to the repository contents
+      packages: write  # Allow write access to packages (for pushing Docker images)
+      # id-token: write  # Allow writing ID tokens for authentication
+
     defaults:
       run:
         working-directory: grafanaCloud
+
     # strategy:
     #   matrix:
     #     config:
     #       - cfg
     #       - abc
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4 # Use latest version
