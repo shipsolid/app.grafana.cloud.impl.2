@@ -193,6 +193,10 @@ jobs:
             sleep 0.2  # 200ms delay between requests, adjust as needed
           done
 
+      - name: Dump Alloy logs
+        run: |
+          docker logs alloy-agent || true
+
       # - name: Stop containers & processes
       #   if: always()
       #   run: |
