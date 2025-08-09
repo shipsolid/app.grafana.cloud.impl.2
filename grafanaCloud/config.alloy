@@ -40,7 +40,7 @@ otelcol.auth.basic "grafana_cloud" {
 
 prometheus.scrape "default" {
   targets = [
-    {"__address__" = "localhost:8080"},
+    {"__address__" = "localhost:5171"},
   ]
   forward_to = [prometheus.relabel.remove_prefix.receiver]
   scrape_interval = "10s"
