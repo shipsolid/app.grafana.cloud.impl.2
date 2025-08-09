@@ -29,19 +29,16 @@ jobs:
           --health-timeout=5s
           --health-retries=20
 
-      # fakestore-mock:
-      #   image: ghcr.io/${{ github.repository_owner }}/fakestore-mock:latest
-      #   credentials:
-      #     username: ${{ github.actor }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
-      #   ports:
-      #     - 3000:3000
-      #   options: >-
-      #     --health-cmd="wget -qO- http://localhost:3000/products > /dev/null || exit 1"
-      #     --health-interval=5s
-      #     --health-timeout=3s
-      #     --health-retries=20
-      #     --health-start-period=10s
+      fakestore-mock:
+        image: ghcr.io/${{ github.repository_owner }}/fakestore-mock:latest
+        ports:
+          - 3000:3000
+        options: >-
+          --health-cmd="wget -qO- http://localhost:3000/products > /dev/null || exit 1"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+          --health-start-period=10s
 
       # fakestore-api:
       #   image: ghcr.io/${{ github.repository_owner }}/fakestore-api:latest
@@ -84,11 +81,11 @@ jobs:
       - name: Wait for Mock Service
         run: |
           set -e
-          docker rm -f fakestore-mock >/dev/null 2>&1 || true
-          docker run -d --name fakestore-mock \
-            --network host \
-            -p 3000:3000 \
-            ghcr.io/${{ github.repository_owner }}/fakestore-mock:latest
+          # docker rm -f fakestore-mock >/dev/null 2>&1 || true
+          # docker run -d --name fakestore-mock \
+          #   --network host \
+          #   -p 3000:3000 \
+          #   ghcr.io/${{ github.repository_owner }}/fakestore-mock:latest
 
           for i in {1..40}; do
             if curl -sf http://localhost:3000/products >/dev/null; then
@@ -150,7 +147,7 @@ jobs:
         run: |
           curl -sS 'http://localhost:5171/products' | jq '.[0:5]' || true
 
-      - name: Stop containers & processes
-        if: always()
-        run: |
-          kill $(cat mock.pid) || true
+      # - name: Stop containers & processes
+      #   if: always()
+      #   run: |
+      #     kill $(cat mock.pid) || true
