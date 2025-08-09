@@ -192,6 +192,7 @@ jobs:
             curl -sS 'http://localhost:5171/products/1' | jq . || true
             sleep 0.2  # 200ms delay between requests, adjust as needed
           done
+          sleep 10  # Allow time for Alloy to process
 
       - name: Dump Alloy logs
         run: |
