@@ -2,6 +2,10 @@ name: Build and Test with MySQL
 
 on:
   workflow_dispatch:
+  # push:
+  #   paths:
+  #     - 'dotnet.FakeStoreIngestor/**'  # Trigger on changes in the dotnet.FakeStoreIngestor directory
+  #     - '.github/workflows/fake-store-ingestor.yml'  # Trigger on changes to this workflow file
 
 jobs:
   build-test:
