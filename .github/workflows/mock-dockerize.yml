@@ -51,12 +51,11 @@ jobs:
             sleep 2
             if [ $i -eq 40 ]; then
               echo "Mock failed to start; printing container logs"
-              docker logs fakestore-api || true
+              docker logs mock-fakestore || true
               exit 1
             fi
           done
-          docker logs mock-fakestore
-        
+
       - name: Cleanup
         if: always()
         run: |

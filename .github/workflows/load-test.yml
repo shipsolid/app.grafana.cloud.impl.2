@@ -1,8 +1,9 @@
 name: Load test
 
 on:
-  # push:
-  #   paths:
+  push:
+    paths:
+      - '.github/workflows/load-test.yml'  # Trigger on changes to this workflow file
   #     - 'dotnet.FakeStoreIngestor/**'  # Trigger on changes in the dotnet.FakeStoreIngestor directory
   #     - '.github/workflows/fake-store-ingestor-dockerize.yml'  # Trigger on changes to this workflow file
   #   branches: [ main ]
@@ -33,12 +34,12 @@ jobs:
         ports:
           - 3000:3000
         options: >-
-          --health-cmd="curl -f http://localhost:3000/health || exit 1"
+          --health-cmd="curl -f http://localhost:3000/products || exit 1"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=20
 
-      app:
+      fakestore-api:
         image: ghcr.io/${{ github.repository_owner }}/fakestore-api:latest
         env:
           ASPNETCORE_URLS: http://0.0.0.0:5171
@@ -66,17 +67,26 @@ jobs:
             fi
             echo "Waiting for MySQL..."
             sleep 2
+            if [ $i -eq 40 ]; then
+              echo "MySQL failed to start"
+              exit 1
+            fi
           done
 
       - name: Wait for Mock Service
         run: |
           for i in {1..40}; do
-            if curl -sf http://localhost:3000/health >/dev/null; then
+            if curl -sf http://localhost:3000/products >/dev/null; then
               echo "Mock service is up!"
               break
             fi
             echo "Waiting for mock service..."
             sleep 2
+            if [ $i -eq 40 ]; then
+              echo "fakestore-mock failed to start; printing container logs"
+              docker logs fakestore-mock || true
+              exit 1
+            fi
           done
 
       # Run API container on host network so it can reach mysql+mock via localhost
