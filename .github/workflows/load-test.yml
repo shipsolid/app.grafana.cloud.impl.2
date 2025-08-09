@@ -29,16 +29,16 @@ jobs:
           --health-timeout=5s
           --health-retries=20
 
-      fakestore-mock:
-        image: ghcr.io/${{ github.repository_owner }}/fakestore-mock:latest
-        ports:
-          - 3000:3000
-        options: >-
-          --health-cmd="wget -qO- http://localhost:3000/products > /dev/null || exit 1"
-          --health-interval=5s
-          --health-timeout=3s
-          --health-retries=20
-          --health-start-period=10s
+      # fakestore-mock:
+      #   image: ghcr.io/${{ github.repository_owner }}/fakestore-mock:latest
+      #   ports:
+      #     - 3000:3000
+      #   options: >-
+      #     --health-cmd="wget -qO- http://localhost:3000/products > /dev/null || exit 1"
+      #     --health-interval=5s
+      #     --health-timeout=3s
+      #     --health-retries=20
+      #     --health-start-period=10s
 
       # fakestore-api:
       #   image: ghcr.io/${{ github.repository_owner }}/fakestore-api:latest
@@ -81,11 +81,11 @@ jobs:
       - name: Wait for Mock Service
         run: |
           set -e
-          # docker rm -f fakestore-mock >/dev/null 2>&1 || true
-          # docker run -d --name fakestore-mock \
-          #   --network host \
-          #   -p 3000:3000 \
-          #   ghcr.io/${{ github.repository_owner }}/fakestore-mock:latest
+          docker rm -f fakestore-mock >/dev/null 2>&1 || true
+          docker run -d --name fakestore-mock \
+            --network host \
+            -p 3000:3000 \
+            ghcr.io/${{ github.repository_owner }}/fakestore-mock:latest
 
           for i in {1..40}; do
             if curl -sf http://localhost:3000/products >/dev/null; then
@@ -135,17 +135,63 @@ jobs:
             fi
           done
 
-      - name: Import first 5
+      - name: Start Monitoring Grafana Alloy Agent
+        env:
+          # Secrets from GitHub → Settings → Secrets and variables → Actions
+          GRAFANA_OTLP_ENDPOINT: ${{ secrets.GRAFANA_OTLP_ENDPOINT }}
+          GRAFANA_OTLP_USERNAME: ${{ secrets.GRAFANA_OTLP_USERNAME }}
+          GRAFANA_OTLP_PASSWORD: ${{ secrets.GRAFANA_OTLP_PASSWORD }}
+          GRAFANA_RW_URL:        ${{ secrets.GRAFANA_RW_URL }}
+          GRAFANA_RW_USERNAME:   ${{ secrets.GRAFANA_RW_USERNAME }}
+          GRAFANA_RW_PASSWORD:   ${{ secrets.GRAFANA_RW_PASSWORD }}
+        run: |
+          set -e
+          docker rm -f alloy-agent >/dev/null 2>&1 || true
+          docker run -d --name alloy-agent \
+            --network host \
+            -p 12345:12345 \
+            -e GRAFANA_OTLP_ENDPOINT="$GRAFANA_OTLP_ENDPOINT" \
+            -e GRAFANA_OTLP_USERNAME="$GRAFANA_OTLP_USERNAME" \
+            -e GRAFANA_OTLP_PASSWORD="$GRAFANA_OTLP_PASSWORD" \
+            -e GRAFANA_RW_URL="$GRAFANA_RW_URL" \
+            -e GRAFANA_RW_USERNAME="$GRAFANA_RW_USERNAME" \
+            -e GRAFANA_RW_PASSWORD="$GRAFANA_RW_PASSWORD" \
+            ghcr.io/${{ github.repository_owner }}/myalloy:latest
+
+          # Wait for Alloy Agent health
+          for i in {1..40}; do
+            if curl -sf http://localhost:12345/health > /dev/null; then
+              echo "Alloy Agent is up!"
+              break
+            fi
+            echo "Waiting for Alloy Agent..."
+            sleep 2
+            if [ $i -eq 40 ]; then
+              echo "Alloy Agent failed to start; printing container logs"
+              docker logs alloy-agent || true
+              exit 1
+            fi
+          done
+
+      - name: Test - Import first 5
         run: |
           curl -sS -X POST 'http://localhost:5171/import/5' -H 'accept: */*'
 
-      - name: Read one
+      - name: Test - Read one
         run: |
           curl -sS 'http://localhost:5171/products/1' | jq . || true
 
-      - name: List all
+      - name: Test - List all
         run: |
           curl -sS 'http://localhost:5171/products' | jq '.[0:5]' || true
+
+      - name: Quick load test (Read one)
+        run: |
+          for i in {1..50}; do
+            echo "Request #$i"
+            curl -sS 'http://localhost:5171/products/1' | jq . || true
+            sleep 0.2  # 200ms delay between requests, adjust as needed
+          done
 
       # - name: Stop containers & processes
       #   if: always()
