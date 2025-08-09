@@ -58,11 +58,11 @@ prometheus.relabel "remove_prefix" {
 prometheus.remote_write "grafanacloud" {
   endpoint {
     name = "hosted-prometheus"
-    url  = env("GRAFANA_REMOTEW_URL")
+    url  = env("GRAFANA_RW_URL")
 
     basic_auth {
-      username = env("GRAFANA_REMOTEW_USERNAME")
-      password = env("GRAFANA_REMOTEW_PASSWORD")
+      username = env("GRAFANA_RW_USERNAME")
+      password = env("GRAFANA_RW_PASSWORD")
     }
   }
 }
