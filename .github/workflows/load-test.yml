@@ -31,6 +31,9 @@ jobs:
 
       fakestore-mock:
         image: ghcr.io/${{ github.repository_owner }}/fakestore-mock:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
         ports:
           - 3000:3000
         options: >-
@@ -42,6 +45,9 @@ jobs:
 
       fakestore-api:
         image: ghcr.io/${{ github.repository_owner }}/fakestore-api:latest
+        credentials:
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
         env:
           ASPNETCORE_URLS: http://0.0.0.0:5171
           # ConnectionStrings__Default: Server=127.0.0.1;Port=3306;Database=fakestore;User=appuser;Password=apppass;TreatTinyAsBoolean=false;DefaultCommandTimeout=30
