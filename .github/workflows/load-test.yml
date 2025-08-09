@@ -49,9 +49,9 @@ jobs:
           Ingest__BaseUrl: "http://fakestore-mock:3000/"
           Ingest__ProductsEndpoint: "products"
         ports:
-          - 80:5171
+          - 5171:5171
         options: >-
-          --health-cmd="curl -f http://localhost/health || exit 1"
+          --health-cmd="curl -f http://localhost:5171/health || exit 1"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=20
@@ -96,7 +96,7 @@ jobs:
         run: |
           # Wait for API health
           for i in {1..40}; do
-            if curl -sf http://localhost:80/health > /dev/null; then
+            if curl -sf http://localhost:5171/health > /dev/null; then
               echo "API is up!"
               break
             fi
@@ -111,15 +111,15 @@ jobs:
 
       - name: Import first 5
         run: |
-          curl -sS -X POST 'http://localhost:80/import/5' -H 'accept: */*'
+          curl -sS -X POST 'http://localhost:5171/import/5' -H 'accept: */*'
 
       - name: Read one
         run: |
-          curl -sS 'http://localhost:80/products/1' | jq . || true
+          curl -sS 'http://localhost:5171/products/1' | jq . || true
 
       - name: List all
         run: |
-          curl -sS 'http://localhost:80/products' | jq '.[0:5]' || true
+          curl -sS 'http://localhost:5171/products' | jq '.[0:5]' || true
 
       - name: Stop containers & processes
         if: always()
