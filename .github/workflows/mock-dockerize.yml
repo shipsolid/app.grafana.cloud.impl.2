@@ -43,12 +43,17 @@ jobs:
 
           # Wait for HTTP to respond (up to ~40s)
           for i in {1..40}; do
-            if curl -sf http://localhost:3000/health >/dev/null; then
+            if curl -sf http://localhost:3000/products >/dev/null; then
               echo "Mock service is up!"
               break
             fi
             echo "Waiting for mock service..."
             sleep 2
+            if [ $i -eq 40 ]; then
+              echo "Mock failed to start; printing container logs"
+              docker logs fakestore-api || true
+              exit 1
+            fi
           done
           docker logs mock-fakestore
         
