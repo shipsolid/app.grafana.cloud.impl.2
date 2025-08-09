@@ -39,14 +39,20 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 
 USER root
+
 ARG OTEL_VERSION=1.4.0
-ADD <https://github.com/open-telemetry/opentelemetry-dotnet-instrumentation/releases/download/v${OTEL_VERSION}/otel-dotnet-auto-install.sh> otel-dotnet-auto-install.sh
+ADD https://github.com/open-telemetry/opentelemetry-dotnet-instrumentation/releases/download/v${OTEL_VERSION}/otel-dotnet-auto-install.sh otel-dotnet-auto-install.sh
 RUN apt-get update && apt-get install -y curl unzip && \
     OTEL_DOTNET_AUTO_HOME="/otel-dotnet-auto" sh otel-dotnet-auto-install.sh && \
     chmod +x /otel-dotnet-auto/instrument.sh
+
 ENV OTEL_DOTNET_AUTO_HOME="/otel-dotnet-auto"
+
+# ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 ENV OTEL_EXPORTER_OTLP_ENDPOINT=http://127.0.0.1:4317
 ENV OTEL_SERVICE_NAME=FakeStoreIngestor
+# ENV OTEL_RESOURCE_ATTRIBUTES=deployment.environment=production
+# ENV OTEL_RESOURCE_ATTRIBUTES=service.namespace=sample,deployment.environment=production,service.instance.id=hostname1,service.version=v1.1
 ENV OTEL_RESOURCE_ATTRIBUTES=sandbox
 
 # Create non-root user

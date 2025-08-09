@@ -127,11 +127,26 @@ services:
 
 Put secrets in GitHub → Settings → Secrets and variables → Actions
 
-Create:
+**Create .NET OTEL Instrumentation**:
+OpenTelemetry instrumentation is the recommended standard to observe applications with Grafana Cloud.
+This integration helps you set up the Grafana Agent and .NET auto-instrumentation to send telemetry to Grafana Cloud.
+
+Scope(dotnet):
+set:alloy-data-write
+  metrics:write
+  logs:write
+  traces:write
+  profiles:write
+  fleet-management:read
 
 - GRAFANA_OTLP_ENDPOINT
 - GRAFANA_OTLP_USERNAME
 - GRAFANA_OTLP_PASSWORD
+
+**Create Hosted Prometheus metrics(Standard via Grafana Alloy)**:
+Your Grafana Cloud stack includes a massively scalable, high-performance, and highly available Prometheus endpoint.
+Bring together the raw, unsampled metrics for all your applications and infrastructure, spread around the globe, in one place
+with 13-months retention (Pro).
 
 - GRAFANA_RW_URL
 - GRAFANA_RW_USERNAME
